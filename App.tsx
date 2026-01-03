@@ -157,24 +157,27 @@ export default function App() {
                   if (!item.isSimulation) {
                       rProfit -= betAmount;
                       rBankroll -= betAmount;
-                  }
                   
-                  // Check if we reached the maximum steps allowed by the user's config
-                  // OR if the NEXT bet would exceed bankroll (double safety)
-                  const isMaxStepsReached = rProgressionStep >= currentConfig.maxSteps - 1;
-                  
-                  if (isMaxStepsReached) {
-                      // BUST (Stop Loss based on dynamic limit)
-                      rLosses++; 
-                      rConsecutiveLosses++;
-                      rProgressionStep = 0;
-                      currentTarget = null; 
-                      rTargetSwitched = false;
-                      lastEndIndex = idx; // Mark end of session
-                  } else {
-                      // CONTINUE PROGRESSION
-                      rProgressionStep++;
+                      // Check if we reached the maximum steps allowed by the user's config
+                      // OR if the NEXT bet would exceed bankroll (double safety)
+                      const isMaxStepsReached = rProgressionStep >= currentConfig.maxSteps - 1;
+                      
+                      if (isMaxStepsReached) {
+                          // BUST (Stop Loss based on dynamic limit)
+                          rLosses++; 
+                          rConsecutiveLosses++;
+                          rProgressionStep = 0;
+                          currentTarget = null; 
+                          rTargetSwitched = false;
+                          lastEndIndex = idx; // Mark end of session
+                      } else {
+                          // CONTINUE PROGRESSION
+                          rProgressionStep++;
+                      }
                   }
+                  // IF SIMULATION: Do nothing to progression step. 
+                  // Just acknowledge the "Virtual Loss" implicitly by not clearing currentTarget.
+                  // This ensures we don't start at N5 just because of history.
               }
           } else if (idx === chronHistory.length - 1) {
              rLastResultDebug = {
