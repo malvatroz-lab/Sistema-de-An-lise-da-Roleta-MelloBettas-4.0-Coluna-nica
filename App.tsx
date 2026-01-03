@@ -198,8 +198,6 @@ export default function App() {
           
           // FIX FOR BULK IMPORT ISSUE:
           // If the item is a simulation (imported), we IGNORE the cooldown period (force it to false).
-          // This ensures that if a bulk import ends with a valid signal, we enter immediately (N1)
-          // instead of waiting 3 spins because of a virtual win that happened a few lines up.
           const inCooldown = !item.isSimulation && spinsSinceLastEnd < 3;
 
           if (currentTarget !== null) {
@@ -222,8 +220,12 @@ export default function App() {
           
           // Calculate cooldown for UI (only relevant on the last item)
           if (idx === chronHistory.length - 1) {
-             // If we are in a progression OR just finished a simulation batch, ignore cooldown
-             if (rProgressionStep > 0 || item.isSimulation) {
+             // FINAL COOLDOWN FIX:
+             // If we have an ACTIVE TARGET (currentTarget !== null), we are IN GAME.
+             // We must NOT show the waiting screen, even if 'spinsSinceLastEnd' suggests otherwise (due to virtual wins in history).
+             // If we are in progression (Step > 0), we are definitely in game.
+             // If item is simulation, we also bypass.
+             if (currentTarget !== null || rProgressionStep > 0 || item.isSimulation) {
                  rCooldownRemaining = 0;
              } else {
                  rCooldownRemaining = Math.max(0, 3 - spinsSinceLastEnd);
