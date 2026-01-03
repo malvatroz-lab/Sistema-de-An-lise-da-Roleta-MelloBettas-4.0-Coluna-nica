@@ -226,6 +226,21 @@ export default function App() {
           }
       });
 
+      // --- LOGIC FIX FOR BULK IMPORT ---
+      // If the latest number added (index 0 of currentHistory) is a simulation (imported),
+      // we force the progression state to reset to 0 (Level N1).
+      // This ensures that pasting numbers doesn't result in "starting" at Level N4/N5 based on past data.
+      // We also clear cooldown so if there is a signal, the user can bet immediately.
+      if (currentHistory.length > 0 && currentHistory[0].isSimulation) {
+          rProgressionStep = 0;
+          rConsecutiveLosses = 0;
+          rTargetSwitched = false;
+          rCooldownRemaining = 0;
+          
+          // Note: We keep currentTarget derived from the loop so the signal appears,
+          // but we reset the 'steps' associated with it.
+      }
+
       setWins(rWins);
       setLosses(rLosses);
       setSessionProfit(rProfit);
@@ -242,13 +257,14 @@ export default function App() {
       
       // PERSISTENCE FIX: 
       // If we are in a progression (step > 0), we MUST show a signal for the active target
-      if (rProgressionStep > 0 && currentTarget !== null) {
+      // Or if we just did a bulk import and have a target, show it.
+      if ((rProgressionStep > 0 || (currentHistory.length > 0 && currentHistory[0].isSimulation)) && currentTarget !== null) {
            const existingSig = finalAnalysis.signal;
            if (!existingSig || existingSig.column !== currentTarget) {
                finalAnalysis.signal = {
                    column: currentTarget,
                    confidence: existingSig?.column === currentTarget ? existingSig.confidence : 95, 
-                   triggers: existingSig?.column === currentTarget ? existingSig.triggers : ['Progressão Ativa'],
+                   triggers: existingSig?.column === currentTarget ? existingSig.triggers : ['Padrão Identificado'],
                    blocks: [],
                    isValid: true,
                    level: 'STRONG'
