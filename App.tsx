@@ -46,6 +46,9 @@ export default function App() {
   // Track if a switch happened in the last step for UI indication
   const [targetSwitched, setTargetSwitched] = useState(false);
 
+  // Store the amount of the last win for accurate notifications
+  const [lastWinAmount, setLastWinAmount] = useState(0);
+
   const prevWinsRef = useRef(0);
   const prevLossesRef = useRef(0);
   const prevSignalColRef = useRef<number | null>(null);
@@ -55,10 +58,8 @@ export default function App() {
   // Detect Events for Notifications
   useEffect(() => {
       if (wins > prevWinsRef.current) {
-          const currentUnit = config ? config.minBet : 0;
-          const estimatedProfit = currentUnit * 2; 
           setLastEvent('WIN');
-          setEventData(estimatedProfit);
+          setEventData(lastWinAmount);
       }
       prevWinsRef.current = wins;
 
@@ -93,7 +94,7 @@ export default function App() {
       // So if it was blocked by cooldown (null) and now appears (col), it counts as a change -> triggers notification.
       prevSignalColRef.current = currentSigCol;
 
-  }, [wins, losses, activeSignal, config, progressionStep, cooldownRemaining]);
+  }, [wins, losses, activeSignal, config, progressionStep, cooldownRemaining, lastWinAmount]);
 
   const recalculateSession = useCallback((currentHistory: HistoryItem[], currentConfig: BankrollConfig | null) => {
       if (!currentConfig) return;
@@ -106,6 +107,7 @@ export default function App() {
       let rConsecutiveLosses = 0;
       let rLastResultDebug = null;
       let rTargetSwitched = false;
+      let rLastWinAmount = 0;
       
       const chronHistory = [...currentHistory].reverse();
       const tempHistory: number[] = [];
@@ -136,11 +138,16 @@ export default function App() {
                   // WIN
                   rWins++;
                   if (!item.isSimulation) {
-                      let cycleInvested = 0;
-                      for(let k=0; k<=rProgressionStep; k++) cycleInvested += currentConfig.minBet * RECOVERY_PROGRESSION[k];
-                      const netProfit = (betAmount * 3) - cycleInvested;
-                      rProfit += netProfit;
-                      rBankroll += netProfit;
+                      // Correct Profit Logic:
+                      // Previous bets in the cycle were already subtracted from rProfit in previous iterations (as losses).
+                      // So we just need to add the result of THIS spin: Return - CurrentBet.
+                      // This ensures the running total (rProfit) correctly reflects the net outcome of the cycle.
+                      const spinReturn = betAmount * 3;
+                      const spinProfit = spinReturn - betAmount;
+                      
+                      rProfit += spinProfit;
+                      rBankroll += spinProfit;
+                      rLastWinAmount = spinProfit;
                   }
                   // RESET CYCLE
                   rProgressionStep = 0;
@@ -228,6 +235,7 @@ export default function App() {
       setLastResultDebug(rLastResultDebug);
       setTargetSwitched(rTargetSwitched);
       setCooldownRemaining(rCooldownRemaining);
+      setLastWinAmount(rLastWinAmount);
 
       const finalNumbers = currentHistory.map(h => h.number);
       let finalAnalysis = performFullAnalysis(finalNumbers, rConsecutiveLosses);
