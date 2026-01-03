@@ -32,36 +32,38 @@ export const BankrollSetup: React.FC<Props> = ({ onComplete }) => {
     ? calculateUnitValue(parseFloat(bankroll), percentage, AVAILABLE_CHIPS)
     : 0;
 
-  // Generate Table Data for UI
+  // Generate Table Data for UI based on the user's latest "Cenário" table
   const progressionTable = RECOVERY_PROGRESSION.map((mult, index) => {
-      const bet = previewBet * mult;
-      const totalReturn = bet * 3;
-      const profit = totalReturn - bet;
+      const bet = previewBet * mult;       // Valor jogado
+      const totalReturn = bet * 3;         // Retorno total
+      const profit = totalReturn - bet;    // Resultado da rodada
       
       // Calculate accumulated loss previous to this step
-      let accumulatedLoss = 0;
-      for(let i=0; i<=index; i++) {
-          accumulatedLoss += (previewBet * RECOVERY_PROGRESSION[i]);
+      let previousLosses = 0;
+      for(let i=0; i < index; i++) {
+          previousLosses += (previewBet * RECOVERY_PROGRESSION[i]);
       }
+      
+      const realProfit = profit - previousLosses; // Resultado acumulado
       
       return {
           level: `N${index + 1}`,
           bet,
           totalReturn,
-          profit, // Lucro da rodada
-          accLoss: -accumulatedLoss
+          profit,          
+          realProfit       
       };
   });
 
   return (
     <div className="flex items-center justify-center min-h-[80vh] px-4 py-8">
-      <Card className="w-full max-w-2xl bg-[#151F32] border-[#1E293B] shadow-2xl p-6 relative overflow-hidden flex flex-col md:flex-row gap-6">
+      <Card className="w-full max-w-4xl bg-[#151F32] border-[#1E293B] shadow-2xl p-6 relative overflow-hidden flex flex-col md:flex-row gap-6">
         
         {/* Background ambient glow */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-24 bg-primary/10 blur-[50px] rounded-full pointer-events-none"></div>
 
         {/* LEFT COLUMN: Inputs */}
-        <div className="flex-1 space-y-6 relative z-10">
+        <div className="flex-1 space-y-6 relative z-10 md:max-w-xs">
             {/* Header */}
             <div className="text-center md:text-left mb-6">
                 <h2 className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em]">Sistema MelloBettas</h2>
@@ -130,29 +132,31 @@ export const BankrollSetup: React.FC<Props> = ({ onComplete }) => {
         </div>
 
         {/* RIGHT COLUMN: Table */}
-        <div className="flex-1 bg-[#0B1120] rounded-xl border border-[#1E293B] p-4 flex flex-col">
+        <div className="flex-1 bg-[#0B1120] rounded-xl border border-[#1E293B] p-4 flex flex-col min-w-0">
              <div className="flex items-center gap-2 mb-4 border-b border-[#1E293B] pb-2">
                  <TableIcon className="w-4 h-4 text-blue-400" />
-                 <h3 className="text-xs font-bold text-slate-300 uppercase">Detalhamento por Nível</h3>
+                 <h3 className="text-xs font-bold text-slate-300 uppercase">Cenário: Ganha naquele nível</h3>
              </div>
              
              <div className="overflow-x-auto">
-                 <table className="w-full text-[10px] md:text-xs">
+                 <table className="w-full text-[10px] md:text-xs whitespace-nowrap">
                      <thead>
                          <tr className="text-slate-500 border-b border-[#1E293B]">
-                             <th className="pb-2 text-left font-medium">Nível</th>
-                             <th className="pb-2 text-right font-medium">Aposta</th>
-                             <th className="pb-2 text-right font-medium">Lucro Rod.</th>
-                             <th className="pb-2 text-right font-medium text-red-400">Acum. Erro</th>
+                             <th className="pb-3 text-left font-medium">Nível</th>
+                             <th className="pb-3 text-right font-medium px-2">Valor Jogado</th>
+                             <th className="pb-3 text-right font-medium px-2">Retorno Total</th>
+                             <th className="pb-3 text-right font-medium px-2">Res. da Rodada</th>
+                             <th className="pb-3 text-right font-bold text-primary px-2">Res. Acumulado</th>
                          </tr>
                      </thead>
                      <tbody className="font-mono">
                          {progressionTable.map((row, i) => (
                              <tr key={i} className="border-b border-[#1E293B]/50 last:border-0 hover:bg-[#1E293B]/30 transition-colors">
-                                 <td className="py-2.5 font-bold text-slate-300">{row.level}</td>
-                                 <td className="py-2.5 text-right text-slate-400">{formatCurrency(row.bet)}</td>
-                                 <td className="py-2.5 text-right text-green-400 font-bold">+{formatCurrency(row.profit)}</td>
-                                 <td className="py-2.5 text-right text-red-500 opacity-80">{formatCurrency(row.accLoss)}</td>
+                                 <td className="py-3 font-bold text-slate-300">{row.level}</td>
+                                 <td className="py-3 text-right text-slate-400 px-2">{formatCurrency(row.bet)}</td>
+                                 <td className="py-3 text-right text-slate-400 px-2">{formatCurrency(row.totalReturn)}</td>
+                                 <td className="py-3 text-right text-green-400/70 px-2">+{formatCurrency(row.profit)}</td>
+                                 <td className="py-3 text-right text-primary font-bold px-2">+{formatCurrency(row.realProfit)}</td>
                              </tr>
                          ))}
                      </tbody>
@@ -160,7 +164,8 @@ export const BankrollSetup: React.FC<Props> = ({ onComplete }) => {
              </div>
              
              <div className="mt-auto pt-4 text-[10px] text-slate-500 italic text-center leading-tight">
-                 * O "Lucro Rod." é o valor que aparecerá no alerta de vitória (Green). O saldo final do ciclo desconta as perdas anteriores automaticamente.
+                 * <strong>Resultado Acumulado</strong> = Resultado da Rodada - Soma das apostas perdidas anteriormente.<br/>
+                 Este é o valor real que entra para a banca ao vencer naquele nível.
              </div>
         </div>
 
