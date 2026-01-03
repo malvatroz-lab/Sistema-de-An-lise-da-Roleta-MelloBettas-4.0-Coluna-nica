@@ -127,6 +127,8 @@ export const GameNotifications: React.FC<Props> = ({ lastEvent, eventData, onCle
           </div>
         );
       case 'SIGNAL':
+         if (!eventData || typeof eventData !== 'object') return null;
+         
          // eventData agora contém { signal, step, isSwitch }
          const { signal, step, isSwitch } = eventData;
          
