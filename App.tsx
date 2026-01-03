@@ -186,7 +186,20 @@ export default function App() {
              rTargetSwitched = false;
           }
 
-          // --- 2. ANALYZE FOR NEXT SPIN ---
+          // --- 2. FORCED RESET FOR SIMULATION ---
+          // Critical Fix: If the current item is a simulation (imported), 
+          // we MUST reset the progression step.
+          // This ensures that any subsequent Real Bet starts at N1 (Step 0),
+          // preventing "Ghost Gales" from the pasted history affecting the profit calculation.
+          // We keep 'currentTarget' if it exists, so the signal persists, but the COST resets.
+          if (item.isSimulation) {
+              rProgressionStep = 0;
+              rConsecutiveLosses = 0;
+              // Also assume cooldown is cleared if we just imported a batch
+              rCooldownRemaining = 0;
+          }
+
+          // --- 3. ANALYZE FOR NEXT SPIN ---
           // Add current number to history
           tempHistory.push(item.number);
           
@@ -217,29 +230,14 @@ export default function App() {
           
           // Calculate cooldown for UI (only relevant on the last item)
           if (idx === chronHistory.length - 1) {
-             // If we are in a progression, we IGNORE cooldown.
-             if (rProgressionStep > 0) {
+             // If we are in a progression OR just finished a simulation batch, ignore cooldown
+             if (rProgressionStep > 0 || item.isSimulation) {
                  rCooldownRemaining = 0;
              } else {
                  rCooldownRemaining = Math.max(0, 3 - spinsSinceLastEnd);
              }
           }
       });
-
-      // --- LOGIC FIX FOR BULK IMPORT ---
-      // If the latest number added (index 0 of currentHistory) is a simulation (imported),
-      // we force the progression state to reset to 0 (Level N1).
-      // This ensures that pasting numbers doesn't result in "starting" at Level N4/N5 based on past data.
-      // We also clear cooldown so if there is a signal, the user can bet immediately.
-      if (currentHistory.length > 0 && currentHistory[0].isSimulation) {
-          rProgressionStep = 0;
-          rConsecutiveLosses = 0;
-          rTargetSwitched = false;
-          rCooldownRemaining = 0;
-          
-          // Note: We keep currentTarget derived from the loop so the signal appears,
-          // but we reset the 'steps' associated with it.
-      }
 
       setWins(rWins);
       setLosses(rLosses);
