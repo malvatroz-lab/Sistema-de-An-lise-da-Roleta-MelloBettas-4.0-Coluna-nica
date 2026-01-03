@@ -186,20 +186,7 @@ export default function App() {
              rTargetSwitched = false;
           }
 
-          // --- 2. FORCED RESET FOR SIMULATION ---
-          // Critical Fix: If the current item is a simulation (imported), 
-          // we MUST reset the progression step.
-          // This ensures that any subsequent Real Bet starts at N1 (Step 0),
-          // preventing "Ghost Gales" from the pasted history affecting the profit calculation.
-          // We keep 'currentTarget' if it exists, so the signal persists, but the COST resets.
-          if (item.isSimulation) {
-              rProgressionStep = 0;
-              rConsecutiveLosses = 0;
-              // Also assume cooldown is cleared if we just imported a batch
-              rCooldownRemaining = 0;
-          }
-
-          // --- 3. ANALYZE FOR NEXT SPIN ---
+          // --- 2. ANALYZE FOR NEXT SPIN ---
           // Add current number to history
           tempHistory.push(item.number);
           
