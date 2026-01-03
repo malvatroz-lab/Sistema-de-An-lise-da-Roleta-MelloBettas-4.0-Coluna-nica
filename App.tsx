@@ -7,7 +7,7 @@ import { NumberInput } from './components/NumberInput';
 import { AnalysisPanel } from './components/AnalysisPanel';
 import { StatsPanel } from './components/StatsPanel';
 import { GameNotifications } from './components/GameNotifications';
-import { Zap, TrendingUp, Disc, AlertCircle, RefreshCw, ArrowRightLeft, Timer } from 'lucide-react';
+import { Zap, TrendingUp, Disc, AlertCircle, RefreshCw, ArrowRightLeft, Timer, ShieldAlert } from 'lucide-react';
 import { Card } from './components/ui/Card';
 
 // Factory function to ensure a fresh object every time
@@ -138,10 +138,7 @@ export default function App() {
                   // WIN
                   rWins++;
                   if (!item.isSimulation) {
-                      // Correct Profit Logic:
-                      // Previous bets in the cycle were already subtracted from rProfit in previous iterations (as losses).
-                      // So we just need to add the result of THIS spin: Return - CurrentBet.
-                      // This ensures the running total (rProfit) correctly reflects the net outcome of the cycle.
+                      // Correct Profit Logic (2:1 Payout):
                       const spinReturn = betAmount * 3;
                       const spinProfit = spinReturn - betAmount;
                       
@@ -161,9 +158,13 @@ export default function App() {
                       rProfit -= betAmount;
                       rBankroll -= betAmount;
                   }
-
-                  if (rProgressionStep >= RECOVERY_PROGRESSION.length - 1) {
-                      // BUST (Stop Loss)
+                  
+                  // Check if we reached the maximum steps allowed by the user's config
+                  // OR if the NEXT bet would exceed bankroll (double safety)
+                  const isMaxStepsReached = rProgressionStep >= currentConfig.maxSteps - 1;
+                  
+                  if (isMaxStepsReached) {
+                      // BUST (Stop Loss based on dynamic limit)
                       rLosses++; 
                       rConsecutiveLosses++;
                       rProgressionStep = 0;
@@ -216,8 +217,7 @@ export default function App() {
           
           // Calculate cooldown for UI (only relevant on the last item)
           if (idx === chronHistory.length - 1) {
-             // CRITICAL FIX: If we are in a progression, we IGNORE cooldown.
-             // We only want cooldown for FRESH entries.
+             // If we are in a progression, we IGNORE cooldown.
              if (rProgressionStep > 0) {
                  rCooldownRemaining = 0;
              } else {
@@ -241,18 +241,13 @@ export default function App() {
       let finalAnalysis = performFullAnalysis(finalNumbers, rConsecutiveLosses);
       
       // PERSISTENCE FIX: 
-      // If we are in a progression (step > 0), we MUST show a signal for the active target,
-      // even if the strict statistical function returns null or fluctuates.
-      // This prevents the UI from dropping to "Analyzing..." or "Waiting" during a gale.
+      // If we are in a progression (step > 0), we MUST show a signal for the active target
       if (rProgressionStep > 0 && currentTarget !== null) {
-           // We override the signal to match our active trade commitment
            const existingSig = finalAnalysis.signal;
-           
-           // Only synthesize if strict signal is missing or different (and not a valid switch detected above)
            if (!existingSig || existingSig.column !== currentTarget) {
                finalAnalysis.signal = {
                    column: currentTarget,
-                   confidence: existingSig?.column === currentTarget ? existingSig.confidence : 95, // High confidence since we are committed
+                   confidence: existingSig?.column === currentTarget ? existingSig.confidence : 95, 
                    triggers: existingSig?.column === currentTarget ? existingSig.triggers : ['Progressão Ativa'],
                    blocks: [],
                    isValid: true,
@@ -325,9 +320,14 @@ export default function App() {
   const currentBetValue = config ? config.minBet * RECOVERY_PROGRESSION[progressionStep] : 0;
   
   // Logic to determine visual status
-  // A signal is "Active" in the UI if we are in a progression step > 0 OR if we have a valid signal and NOT in cooldown
   const isSignalActive = (activeSignal?.isValid && cooldownRemaining === 0) || progressionStep > 0;
-  const isRecoveryActive = progressionStep > 0;
+  const isRecoveryActive = progressionStep >= 5; // Steps 0-4 are Normal, 5-9 are Recovery
+  
+  // Dynamic Max Step Display
+  const maxStepIndex = config?.maxSteps ? config.maxSteps - 1 : 9;
+  const isLastStep = progressionStep === maxStepIndex;
+  
+  const stepLabel = isRecoveryActive ? `R${progressionStep - 4}` : `N${progressionStep + 1}`;
   
   return (
     <div className="min-h-screen bg-[#0B1120] text-slate-200 font-sans p-4 flex flex-col gap-4">
@@ -347,7 +347,9 @@ export default function App() {
                   targetSwitched 
                     ? "bg-purple-900/20 border-purple-500 text-purple-400 animate-pulse"
                     : isRecoveryActive 
-                        ? "bg-amber-900/20 border-amber-600 text-amber-500 animate-pulse" 
+                        ? isLastStep 
+                            ? "bg-red-900/20 border-red-600 text-red-500 animate-pulse" // Last step danger
+                            : "bg-amber-900/20 border-amber-600 text-amber-500 animate-pulse" 
                     : isSignalActive
                         ? "bg-primary/20 border-primary text-primary shadow-primary/20 animate-pulse-fast" 
                         : cooldownRemaining > 0 
@@ -361,13 +363,13 @@ export default function App() {
                       </>
                   ) : isRecoveryActive ? (
                       <>
-                        <AlertCircle className="w-4 h-4" />
-                        RECUPERAÇÃO ATIVA (GALE {progressionStep}/5)
+                        <ShieldAlert className="w-4 h-4" />
+                        RECUPERAÇÃO {stepLabel} {isLastStep && '(ÚLTIMA TENTATIVA)'}
                       </>
                   ) : isSignalActive ? (
                       <>
                         <div className="w-3 h-3 rounded-full bg-primary"></div>
-                        ENTRADA AUTORIZADA
+                        {progressionStep > 0 ? `FASE NORMAL (${stepLabel})` : 'ENTRADA AUTORIZADA'}
                       </>
                   ) : cooldownRemaining > 0 ? (
                       <>
@@ -399,18 +401,20 @@ export default function App() {
                       targetSwitched ? "text-purple-400" :
                       (isSignalActive) ? "text-blue-400" : "text-slate-600"
                   )}>
-                      {activeSignal?.column && isSignalActive ? `C${activeSignal.column}` : isRecoveryActive ? 'Mantém' : '-'}
+                      {activeSignal?.column && isSignalActive ? `C${activeSignal.column}` : progressionStep > 0 ? 'Mantém' : '-'}
                   </span>
               </Card>
               <Card className="bg-[#151F32] border-[#1E293B] p-2 px-3 flex flex-col justify-center">
                   <span className="text-[10px] text-slate-500 flex items-center gap-1"><Zap className="w-3 h-3" /> Gatilho Ativo</span>
                   <span className="font-bold text-slate-300 text-xs truncate">
-                      {isSignalActive ? activeSignal.triggers[0] : isRecoveryActive ? 'Proteção/Gale' : 'Nenhum'}
+                      {isSignalActive ? activeSignal.triggers[0] : isRecoveryActive ? 'Recuperação' : 'Nenhum'}
                   </span>
               </Card>
               <Card className="bg-[#151F32] border-[#1E293B] p-2 px-3 flex flex-col justify-center">
-                  <span className="text-[10px] text-slate-500 flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Progressão</span>
-                  <span className={cn("font-bold", targetSwitched ? "text-purple-400" : "text-slate-300")}>N{progressionStep + 1}/5</span>
+                  <span className="text-[10px] text-slate-500 flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Nível</span>
+                  <span className={cn("font-bold", 
+                      isRecoveryActive ? "text-amber-500" : targetSwitched ? "text-purple-400" : "text-slate-300"
+                  )}>{stepLabel}</span>
               </Card>
               <Card className="bg-[#151F32] border-[#1E293B] p-2 px-3 flex flex-col justify-center">
                   <span className="text-[10px] text-slate-500 flex items-center gap-1">Entrada Atual</span>

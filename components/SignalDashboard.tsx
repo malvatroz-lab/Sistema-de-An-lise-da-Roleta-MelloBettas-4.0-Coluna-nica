@@ -7,10 +7,11 @@ import { getColumnColor } from '../lib/constants';
 
 interface Props {
   signal: Signal | null;
-  currentStep: number; // 0 to 4
+  currentStep: number; // 0 to 9
+  maxSteps?: number; // Added to limit visualization
 }
 
-export const SignalDashboard: React.FC<Props> = ({ signal, currentStep }) => {
+export const SignalDashboard: React.FC<Props> = ({ signal, currentStep, maxSteps = 10 }) => {
   if (!signal) {
     return (
       <Card className="mx-4 my-6 p-8 border-dashed border-2 border-slate-800 bg-slate-900/30 flex flex-col items-center justify-center text-slate-500">
@@ -23,15 +24,20 @@ export const SignalDashboard: React.FC<Props> = ({ signal, currentStep }) => {
 
   const isStrong = signal.level === 'STRONG';
   const isBlocked = signal.blocks.length > 0;
+  const isRecoveryPhase = currentStep >= 5;
+
+  // Filter accessible steps based on maxSteps
+  const visibleSteps = RECOVERY_PROGRESSION.slice(0, maxSteps);
 
   return (
     <Card className={cn(
       "mx-4 my-6 overflow-hidden border-2 relative transition-all duration-500",
       isBlocked ? "border-red-900 bg-red-950/10" : 
+      isRecoveryPhase ? "border-amber-600 bg-amber-950/10 shadow-[0_0_30px_rgba(245,158,11,0.15)]" :
       isStrong ? "border-primary bg-primary/5 shadow-[0_0_30px_rgba(34,197,94,0.15)]" : 
       "border-blue-500/50 bg-blue-900/5"
     )}>
-      {isStrong && !isBlocked && (
+      {isStrong && !isBlocked && !isRecoveryPhase && (
           <div className="absolute top-0 right-0 p-2">
             <span className="relative flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
@@ -59,19 +65,30 @@ export const SignalDashboard: React.FC<Props> = ({ signal, currentStep }) => {
             
             {/* Progression Steps */}
             {!isBlocked && (
-                <div className="flex flex-col items-end">
-                    <span className="text-xs text-slate-400 mb-2">Gale / Nível</span>
-                    <div className="flex gap-1">
-                        {RECOVERY_PROGRESSION.map((mult, idx) => (
-                            <div key={idx} className={cn(
-                                "w-6 h-8 rounded flex items-center justify-center text-xs font-bold transition-colors",
-                                idx === currentStep ? "bg-primary text-black ring-2 ring-primary/50 ring-offset-2 ring-offset-card" : 
-                                idx < currentStep ? "bg-red-900/50 text-red-200 line-through" :
-                                "bg-slate-800 text-slate-500"
-                            )}>
-                                {mult}x
-                            </div>
-                        ))}
+                <div className="flex flex-col items-end max-w-[60%]">
+                    <span className={cn("text-xs mb-2 font-bold uppercase", isRecoveryPhase ? "text-amber-500" : "text-slate-400")}>
+                        {isRecoveryPhase ? "Fase Recuperação" : "Fase Normal"}
+                    </span>
+                    <div className="flex flex-wrap justify-end gap-1">
+                        {visibleSteps.map((mult, idx) => {
+                            const isCurrent = idx === currentStep;
+                            const isPast = idx < currentStep;
+                            const isRec = idx >= 5;
+                            const label = isRec ? `R${idx-4}` : `N${idx+1}`;
+                            
+                            return (
+                                <div key={idx} className={cn(
+                                    "w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold transition-colors border",
+                                    isCurrent 
+                                        ? isRec ? "bg-amber-500 text-black border-amber-500" : "bg-primary text-black border-primary"
+                                        : isPast 
+                                            ? "bg-red-900/30 text-red-500 border-red-900/50 line-through"
+                                            : "bg-slate-800 text-slate-600 border-slate-700"
+                                )}>
+                                    {label}
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             )}

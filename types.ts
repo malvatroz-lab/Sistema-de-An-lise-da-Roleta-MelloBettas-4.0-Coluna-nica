@@ -1,8 +1,10 @@
+
 export interface BankrollConfig {
   initialBankroll: number;
   entryPercentage: number;
   minBet: number;
   currentBankroll: number;
+  maxSteps: number; // Index limit for progression based on affordable bankroll
 }
 
 export type ChipValue = 0.50 | 2.50 | 10 | 50 | 250 | 1000;
@@ -56,6 +58,9 @@ export interface AnalysisResult {
 
 export type SystemState = 'SETUP' | 'WAITING' | 'SIGNAL_ACTIVE' | 'RESULT';
 
-export const RECOVERY_PROGRESSION = [1, 1, 2, 3, 5];
-export const TOTAL_UNITS = 12;
+// Multipliers based on 0.50 unit
+// N1-N5: 0.5, 0.5, 1, 1.5, 2.5 (1x, 1x, 2x, 3x, 5x)
+// R1-R5: 4.0, 6.0, 9.0, 13.0, 20.0 (8x, 12x, 18x, 26x, 40x)
+export const RECOVERY_PROGRESSION = [1, 1, 2, 3, 5, 8, 12, 18, 26, 40];
+export const TOTAL_UNITS = 116; // Total sum of multipliers
 export const AVAILABLE_CHIPS: ChipValue[] = [0.50, 2.50, 10, 50, 250, 1000];
