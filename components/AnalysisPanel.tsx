@@ -26,6 +26,10 @@ export const AnalysisPanel: React.FC<Props> = ({ data, progressionStep, config, 
   const showSignal = (signal && signal.isValid && cooldown === 0) || progressionStep > 0;
   const activeCol = signal ? signal.column : null;
 
+  // Consistency Logic: Match the header labels exactly
+  const isRecovery = progressionStep >= 5;
+  const stepLabel = isRecovery ? `R${progressionStep - 4}` : `N${progressionStep + 1}`;
+
   return (
     <div className="flex flex-col gap-2 h-full">
         {/* Column Bars */}
@@ -73,34 +77,43 @@ export const AnalysisPanel: React.FC<Props> = ({ data, progressionStep, config, 
                 <Card className={cn(
                     "h-full flex flex-col items-center justify-center p-1 relative overflow-hidden border-2",
                     isTargetSwitched ? "bg-purple-950/10 border-purple-500 shadow-[0_0_25px_rgba(168,85,247,0.2)]" 
+                                     : isRecovery ? "bg-amber-950/10 border-amber-500 shadow-[0_0_25px_rgba(245,158,11,0.2)]"
                                      : "bg-green-950/10 border-primary shadow-[0_0_25px_rgba(16,185,129,0.2)]"
                 )}>
-                    <div className={cn("absolute inset-0 opacity-10 animate-pulse", isTargetSwitched ? "bg-purple-500" : "bg-primary")}></div>
+                    <div className={cn("absolute inset-0 opacity-10 animate-pulse", 
+                        isTargetSwitched ? "bg-purple-500" : isRecovery ? "bg-amber-500" : "bg-primary"
+                    )}></div>
                     
                     <div className="relative z-10 flex flex-col items-center justify-center h-full w-full">
                         
                         {/* Top Badge - Enhanced */}
                         <div className={cn(
                             "px-3 py-0.5 rounded-full border backdrop-blur-md flex items-center gap-1.5 mb-0.5 shadow-sm",
-                            isTargetSwitched ? "bg-purple-500/20 border-purple-500/50 text-purple-200" : "bg-green-500/20 border-green-500/50 text-green-100"
+                            isTargetSwitched ? "bg-purple-500/20 border-purple-500/50 text-purple-200" : 
+                            isRecovery ? "bg-amber-500/20 border-amber-500/50 text-amber-200" :
+                            "bg-green-500/20 border-green-500/50 text-green-100"
                         )}>
                             {isTargetSwitched ? <ArrowRightLeft className="w-3 h-3" /> : <TrendingUp className="w-3 h-3" />}
                             <span className="text-[11px] font-black uppercase tracking-wider">
-                                {isTargetSwitched ? "ALVO ALTERADO" : progressionStep > 0 ? `GALE ${progressionStep}` : "CONFIRMADO"}
+                                {isTargetSwitched ? "ALVO ALTERADO" : progressionStep > 0 ? `NÍVEL ${stepLabel}` : "ENTRADA CONFIRMADA"}
                             </span>
                         </div>
 
                         {/* Main Title - MAXIMIZED */}
                         <h2 className={cn(
                             "text-5xl font-black leading-[0.85] tracking-tighter my-1 drop-shadow-lg", 
-                            isTargetSwitched ? "text-purple-400 drop-shadow-[0_2px_10px_rgba(168,85,247,0.5)]" : "text-white drop-shadow-[0_2px_10px_rgba(16,185,129,0.5)]"
+                            isTargetSwitched ? "text-purple-400 drop-shadow-[0_2px_10px_rgba(168,85,247,0.5)]" : 
+                            isRecovery ? "text-amber-500 drop-shadow-[0_2px_10px_rgba(245,158,11,0.5)]" :
+                            "text-white drop-shadow-[0_2px_10px_rgba(16,185,129,0.5)]"
                         )}>
                             COLUNA {activeCol}
                         </h2>
                         
                         {/* Bottom Bar - Enhanced Size */}
                         <div className="bg-[#0B1120]/80 backdrop-blur rounded px-4 py-1 border border-white/10 flex items-center gap-3 mt-1 shadow-lg">
-                             <span className={cn("text-sm font-mono font-bold tracking-tight", isTargetSwitched ? "text-purple-300" : "text-primary")}>
+                             <span className={cn("text-sm font-mono font-bold tracking-tight", 
+                                 isTargetSwitched ? "text-purple-300" : isRecovery ? "text-amber-500" : "text-primary"
+                             )}>
                                  {formatCurrency(currentBetAmount)}
                              </span>
                              <span className="w-px h-3 bg-white/20"></span>

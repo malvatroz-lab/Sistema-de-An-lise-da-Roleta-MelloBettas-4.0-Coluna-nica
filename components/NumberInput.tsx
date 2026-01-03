@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Button } from './ui/Button';
-import { Trash2, RotateCcw, Clipboard, Plus, History, Loader2, Upload } from 'lucide-react';
+import { Trash2, RotateCcw, Clipboard, Plus, History, Loader2, Upload, Download } from 'lucide-react';
 import { getNumberBgColor, getColumn } from '../lib/constants';
 import { cn } from '../lib/utils';
 import { Card } from './ui/Card';
@@ -60,6 +60,38 @@ export const NumberInput: React.FC<Props> = ({ onAddNumber, onAddBulk, onUndo, o
     }
     // Clear input to allow re-uploading the same file if needed (reset scenario)
     if (event.target) event.target.value = '';
+  };
+
+  const handleExportHistory = () => {
+    if (history.length === 0) return;
+
+    // Create CSV content
+    const headers = ["ID", "Data", "Hora", "Numero", "Coluna", "Cor"];
+    const rows = history.map((item, index) => {
+        const id = history.length - index;
+        const dateStr = item.timestamp.toLocaleDateString('pt-BR');
+        const timeStr = item.timestamp.toLocaleTimeString('pt-BR');
+        const col = getColumn(item.number);
+        const colorClass = getNumberBgColor(item.number);
+        const color = colorClass.includes('green') ? 'Verde' : colorClass.includes('red') ? 'Vermelho' : 'Preto';
+        
+        return [id, dateStr, timeStr, item.number, col === 0 ? '-' : col, color].join(",");
+    });
+
+    const csvContent = [headers.join(","), ...rows].join("\n");
+    
+    // Create Blob and download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `historico_roleta_${timestamp}.csv`);
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const preprocessImage = (file: File): Promise<string> => {
@@ -301,7 +333,18 @@ export const NumberInput: React.FC<Props> = ({ onAddNumber, onAddBulk, onUndo, o
               <h3 className="text-xs font-bold text-slate-400 flex items-center gap-2">
                   <History className="w-3.5 h-3.5" /> HISTÓRICO
               </h3>
-              <span className="text-[10px] text-slate-600">{history.length}/1000</span>
+              <div className="flex items-center gap-2">
+                 <span className="text-[10px] text-slate-600">{history.length}/1000</span>
+                 {history.length > 0 && (
+                     <button 
+                        onClick={handleExportHistory} 
+                        className="text-slate-400 hover:text-primary transition-colors p-1"
+                        title="Baixar CSV"
+                     >
+                        <Download className="w-3.5 h-3.5" />
+                     </button>
+                 )}
+              </div>
           </div>
           <div className="flex-1 overflow-y-auto p-0">
              {history.length === 0 ? (

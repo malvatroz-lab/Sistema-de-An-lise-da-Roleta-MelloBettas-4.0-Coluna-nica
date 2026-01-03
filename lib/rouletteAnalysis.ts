@@ -151,105 +151,117 @@ export function generateSignal(numbers: number[], consecutiveLosses: number): Si
   const activeTriggers: string[] = [];
   const activeBlocks: string[] = [];
   
+  // CALIBRATION: SNIPER MODE
+  // Focus heavily on recent activity (last 5-7) rather than long history (last 20)
+  
   let bestColumn = { col: 0, score: -100, stats: {} as any };
 
   ([1, 2, 3] as const).forEach(col => {
     const last20 = numbers.slice(0, 20);
     const last7 = numbers.slice(0, 7);
     const last5 = numbers.slice(0, 5);
+    const last3 = numbers.slice(0, 3);
+
     const valid20 = last20.filter(n => getColumn(n) > 0);
     
     const count20 = valid20.filter(n => getColumn(n) === col).length;
     const percentage = valid20.length > 0 ? (count20 / valid20.length) * 100 : 0;
     
-    // Scoring logic
-    let score = percentage * 1.2;
+    // Base Score: Reduced weight of long-term history
+    let score = percentage * 0.8; 
+    
+    const count7 = last7.filter(n => getColumn(n) === col).length;
     const count5 = last5.filter(n => getColumn(n) === col).length;
+    const count3 = last3.filter(n => getColumn(n) === col).length;
     
-    // Recent activity boosts score significantly
-    if (count5 >= 2) score += 15;
-    if (count5 >= 3) score += 20; // Boosted
-    if (count5 >= 4) score += 30; // Strong Boost for strict streak
-    
-    const appearances: number[] = [];
-    numbers.slice(0, 10).forEach((n, idx) => {
-        if (getColumn(n) === col) appearances.push(idx);
-    });
-    if (appearances.length >= 2) {
-        const gap = appearances[1] - appearances[0];
-        if (gap >= 2 && gap <= 4) score += 12;
-    }
+    // Momentum Scoring (Sniper Logic)
+    if (count3 >= 2) score += 25; // High priority for immediate momentum
+    if (count5 >= 3) score += 20; // Strong short-term trend
+    if (count7 >= 4) score += 15; // Sustained pressure
 
+    // Repetition/Streak Scoring
     let streak = 0;
     for (const n of numbers.slice(0, 10)) {
         if (getColumn(n) === col) streak++;
         else if (getColumn(n) !== 0) break;
     }
-    if (streak >= 2) score += streak * 10; 
+    if (streak >= 2) score += streak * 15; 
 
-    if (patterns.hotColumn === col) {
-        score += 15;
-        if (patterns.recentTrend === 'up') score += 10;
+    // Pattern Scoring
+    if (patterns.hotColumn === col && patterns.recentTrend === 'up') {
+        score += 20;
+    }
+
+    // DEAD TREND FILTER:
+    // If a column has high percentage but hasn't appeared in the last 5 spins (count5 < 1), 
+    // punish it severely. It's likely cooling down.
+    if (count5 < 2) {
+        score -= 50; 
     }
 
     if (score > bestColumn.score) {
-        bestColumn = { col, score, stats: { percentage, last7Count: last7.filter(n => getColumn(n) === col).length, count5 } };
+        bestColumn = { col, score, stats: { percentage, count7, count5, count3 } };
     }
   });
 
   const targetCol = bestColumn.col;
   if (targetCol === 0) return null;
 
-  // --- REVISED SIGNAL CRITERIA ---
+  // --- REVISED SIGNAL CRITERIA (SNIPER MODE) ---
   
-  // 1. Min Percent logic
-  const minPercent = bestColumn.stats.count5 >= 4 ? 20 : 30;
-  if (bestColumn.stats.percentage < minPercent) return null;
+  // 1. Min Percent logic (Lowered slightly because we rely more on momentum now)
+  if (bestColumn.stats.percentage < 25) return null;
 
-  // 2. Momentum vs Dominance Trade-off
-  const isHighPressure = bestColumn.stats.last7Count >= 4;
-  const isGoodPressure = bestColumn.stats.last7Count >= 3;
-  const isHighDominance = bestColumn.stats.percentage >= 40;
+  // 2. Strict Momentum Check
+  // Must have 2 hits in last 4 (Continuity) OR Extreme Pressure (4 in last 7)
+  // This prevents entering on a "maybe" signal.
+  const last4 = numbers.slice(0, 4);
+  const continuity = last4.filter(n => getColumn(n) === targetCol).length >= 2;
+  const isExtremePressure = bestColumn.stats.count7 >= 4;
   
-  const hasEntryCondition = isHighPressure || (isHighDominance && isGoodPressure) || (bestColumn.stats.count5 >= 3);
-
-  if (!hasEntryCondition) return null;
+  // If no continuity AND no extreme pressure, wait.
+  if (!continuity && !isExtremePressure) return null;
 
   // Add triggers text
-  if (isHighPressure) activeTriggers.push("Pressão Intensa (4/7)");
-  else if (isGoodPressure) activeTriggers.push("Pressão Moderada (3/7)");
-  else if (bestColumn.stats.count5 >= 3) activeTriggers.push("Tendência Recente");
+  if (isExtremePressure) activeTriggers.push("Pressão Extrema (4+/7)");
+  else if (bestColumn.stats.count7 >= 3) activeTriggers.push("Pressão Estável");
+
+  if (continuity) activeTriggers.push("Continuidade (2 em 4)");
+  
+  if (bestColumn.stats.count3 >= 2) activeTriggers.push("Momentum Imediato");
 
   if (bestColumn.stats.percentage >= 45) activeTriggers.push("Alta Dominância");
   
-  const last4 = numbers.slice(0, 4);
-  if(last4.filter(n => getColumn(n) === targetCol).length >= 2) {
-      activeTriggers.push("Continuidade");
-  }
-
   // Calculate Confidence
-  let confidence = Math.min(bestColumn.score * 0.8, 60);
-  if (activeTriggers.length >= 1) confidence += 15;
-  if (activeTriggers.length >= 2) confidence += 10;
-  if (patterns.hasRepetitionPattern) confidence += 10;
-  if (isHighPressure) confidence += 15;
-
-  // Check Blocks - Simplified to only care about Zeros
-  const last5 = numbers.slice(0, 5);
-  if (last5.filter(n => n === 0).length >= 2) {
-      activeBlocks.push("Excesso de Zeros");
-      confidence -= 30;
-  }
+  let confidence = Math.min(bestColumn.score * 0.9, 65); // Cap base confidence
   
-  // REMOVED: The logic that blocked betting based on `consecutiveLosses`.
-  // This ensures that if the stats say "Go", we Go, regardless of previous cycle loss.
+  if (activeTriggers.length >= 2) confidence += 20;
+  if (patterns.hasRepetitionPattern) confidence += 10;
+  if (isExtremePressure) confidence += 15;
+  if (continuity) confidence += 10;
+
+  // Zeros Block
+  // Stricter: 2 zeros in 10 is risky, 2 in 5 is a block.
+  const last10 = numbers.slice(0, 10);
+  const zerosIn5 = numbers.slice(0, 5).filter(n => n === 0).length;
+  
+  if (zerosIn5 >= 1) {
+       // Just one zero in recent history lowers confidence significantly in Sniper Mode
+       confidence -= 20;
+       if (zerosIn5 >= 2) {
+           activeBlocks.push("Instabilidade (Zeros)");
+       }
+  }
 
   confidence = Math.min(Math.max(confidence, 0), 100);
 
+  // Filter out low confidence signals entirely in Sniper Mode
+  if (confidence < 60) return null; 
+
   let level: Signal['level'] = 'WEAK';
-  if (confidence >= 85) level = 'STRONG';
-  else if (confidence >= 65) level = 'GOOD';
-  else if (confidence >= 50) level = 'MEDIUM';
+  if (confidence >= 90) level = 'STRONG';
+  else if (confidence >= 75) level = 'GOOD';
+  else if (confidence >= 60) level = 'MEDIUM';
 
   const isValid = activeBlocks.length === 0;
 
