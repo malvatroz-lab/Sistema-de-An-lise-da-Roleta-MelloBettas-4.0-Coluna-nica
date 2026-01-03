@@ -195,7 +195,12 @@ export default function App() {
 
           // Logic to SET or SWITCH target for the NEXT spin
           const spinsSinceLastEnd = idx - lastEndIndex;
-          const inCooldown = spinsSinceLastEnd < 3;
+          
+          // FIX FOR BULK IMPORT ISSUE:
+          // If the item is a simulation (imported), we IGNORE the cooldown period (force it to false).
+          // This ensures that if a bulk import ends with a valid signal, we enter immediately (N1)
+          // instead of waiting 3 spins because of a virtual win that happened a few lines up.
+          const inCooldown = !item.isSimulation && spinsSinceLastEnd < 3;
 
           if (currentTarget !== null) {
               // ACTIVE SESSION: Check for Dynamic Switch
